@@ -1,13 +1,12 @@
 {
-  "name": "agente_wms",
+  "name": "agente_sf",
   "version": "1.0.0",
    "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "start": "node src/server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "GT066",
   "license": "ISC",
   "description": "",
   "dependencies": {
