@@ -21,10 +21,7 @@ const client = new Client({
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   >>> BLOQUE AGREGADO: Control de inactividad (10 min) con persistencia en /data
-   - Guarda por usuario: lastInteractionAt y state
-   - Archivo: /data/conversation_state.json
-   - En expiración: envía prefacio y vuelve al menú principal
+   >>> BLOQUE DE CONTROL DE INACTIVIDAD (10 min)
    ───────────────────────────────────────────────────────────────────────────── */
 const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutos
 const STATE_FILE = path.join('/data', 'conversation_state.json');
@@ -36,6 +33,7 @@ function loadState() {
     return {};
   }
 }
+
 function saveState(db) {
   try {
     fs.writeFileSync(STATE_FILE, JSON.stringify(db, null, 2), 'utf8');
@@ -44,11 +42,14 @@ function saveState(db) {
   }
 }
 
-const stateDB = loadState(); // { [jid]: { lastInteractionAt:number, state:string } }
+const stateDB = loadState();
 const now = () => Date.now();
 
+// 🔹 Mantiene consistencia con el menú raíz definido en messageHandler
+const ROOT_STATE = 'menuPrincipal';
+
 function getUserState(jid) {
-  if (!stateDB[jid]) stateDB[jid] = { lastInteractionAt: 0, state: 'MENU_PRINCIPAL' };
+  if (!stateDB[jid]) stateDB[jid] = { lastInteractionAt: 0, state: ROOT_STATE };
   return stateDB[jid];
 }
 function touch(jid) {
@@ -62,11 +63,12 @@ function isExpired(jid) {
 }
 function resetToMenu(jid) {
   const u = getUserState(jid);
-  u.state = 'MENU_PRINCIPAL';
+  u.state = ROOT_STATE;
   u.lastInteractionAt = now();
   saveState(stateDB);
 }
-// Limpieza ligera de estados >24h para evitar crecimiento del archivo
+
+// 🔹 Limpieza ligera de estados viejos
 setInterval(() => {
   const cutoff = now() - 24 * 60 * 60 * 1000;
   let changed = false;
@@ -78,7 +80,8 @@ setInterval(() => {
   }
   if (changed) saveState(stateDB);
 }, 30 * 60 * 1000);
-/* ──────────────────────────── FIN BLOQUE AGREGADO ─────────────────────────── */
+
+/* ──────────────────────────── FIN BLOQUE ─────────────────────────── */
 
 client.on('qr', (qr) => {
   console.log('📱 Escanea este código QR para iniciar sesión:');
@@ -89,14 +92,12 @@ client.on('qr', (qr) => {
 client.on('ready', async () => {
   console.log('✅ Bot conectado y listo para recibir mensajes.');
 
-  // ✅ Si quieres enviar un “menú de bienvenida” proactivo, hazlo *después* de ready
-  // y pasando client + destinatario válido:
+  // ✅ Envío opcional de menú inicial
   const usuario = 'usuario_demo';
-  const to = process.env.ADMIN_NUMBER || ''; // p.ej. "502XXXXXXXX"
+  const to = process.env.ADMIN_NUMBER || ''; // ej: "502XXXXXXXX"
   if (to) {
     const jid = to.includes('@') ? to : `${to}@c.us`;
     try {
-      // Asegúrate de que mostrarMenuPrincipal acepte (client, jid, usuario)
       await menuHandler.mostrarMenuPrincipal(client, jid, usuario);
     } catch (err) {
       console.error('❌ Error enviando menú de bienvenida:', err);
@@ -105,30 +106,30 @@ client.on('ready', async () => {
 });
 
 client.on('message', async (message) => {
-  /* ───────────────────────────────────────────────────────────────────────────
-     >>> LÍNEAS AGREGADAS: Chequeo de inactividad por usuario (10 min)
-     - Si expira: prefacio + menú principal y NO continúa el flujo anterior
-     - Si no expira: marca interacción y continúa con tu handler existente
-     ─────────────────────────────────────────────────────────────────────────── */
   const jid = message.from;
   const usuario = message._data?.notifyName || message._data?.pushname || 'usuario';
 
+  // 🔹 Control de inactividad
   if (isExpired(jid)) {
     resetToMenu(jid);
     try {
-      await client.sendMessage(jid, 'se ha reiniciado tu sesión por inactividad.');
+      await client.sendMessage(jid, '⌛ Se ha reiniciado tu sesión por inactividad.');
       await menuHandler.mostrarMenuPrincipal(client, jid, usuario);
     } catch (e) {
       console.error('Error al enviar menú por reinicio de inactividad:', e.message);
     }
-    return; // no continuar con el flujo previo para este mensaje
+    return;
   }
 
-  touch(jid); // marca última interacción como reciente
-  /* ───────────────────────── FIN LÍNEAS AGREGADAS ─────────────────────────── */
+  touch(jid);
 
-  // Aquí sí le pasas el client correctamente
-  await handleMessage(client, message);
+  // 🔹 Delegar procesamiento al messageHandler central
+  try {
+    await handleMessage(client, message);
+  } catch (err) {
+    console.error('❌ Error procesando mensaje:', err);
+    await client.sendMessage(jid, '⚠️ Ocurrió un error al procesar tu solicitud. Escribe *menu* para reiniciar.');
+  }
 });
 
 client.initialize();

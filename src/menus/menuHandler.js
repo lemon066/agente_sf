@@ -4,27 +4,43 @@ const menuTree = require('./menuTree');
 module.exports = {
   handleMenuOption: function (client, usuario, opcion) {
     switch (opcion) {
+      // 🔹 Nivel 1: Menú principal
       case "1":
-        responseUtils.enviarTexto(client, usuario, "🛍️ Mostrando productos destacados...\n\n• Laptop X100\n• Monitor UltraView 27''\n• Mouse inalámbrico Pro\n\n¿Deseas cotizar alguno?");
+        // Ahora el menú de productos se gestiona dinámicamente desde menuTree
+        responseUtils.enviarTexto(client, usuario, menuTree.productosMenu.message);
         break;
+
       case "2":
-        responseUtils.enviarTexto(client, usuario, "💰 Nueva cotización. Indica el producto y cantidad que deseas cotizar.");
+        responseUtils.enviarTexto(client, usuario, menuTree.cotizacionMenu.message);
         break;
+
       case "3":
-        responseUtils.enviarTexto(client, usuario, "👤 Consultar cliente. Escribe el nombre o número del cliente a buscar.");
+        responseUtils.enviarTexto(client, usuario, menuTree.clientesMenu.message);
         break;
+
       case "4":
-        responseUtils.enviarTexto(client, usuario, "📈 Estas son tus oportunidades abiertas:\n• OP-1234 - Laptop X100 - Etapa: Negociación\n• OP-1235 - Monitor UltraView - Etapa: Propuesta\n\n¿Deseas actualizar alguna?");
+        responseUtils.enviarTexto(client, usuario, menuTree.oportunidadesMenu.message);
         break;
+
       case "5":
-        responseUtils.enviarTexto(client, usuario, "☎️ Puedes contactar a un asesor o enviar mensaje al departamento de ventas.\n\nCorreo: ventas@miempresa.com");
+        responseUtils.enviarTexto(client, usuario, menuTree.soporteMenu.message);
         break;
+
+      // 🔹 Permite volver al menú principal
       case "menu":
       case "0":
         responseUtils.enviarTexto(client, usuario, menuTree.menuPrincipal.message);
         break;
+
+      // 🔹 Manejo dinámico para subniveles (productosCategorias, etc.)
       default:
-        responseUtils.enviarTexto(client, usuario, "❌ Opción no válida. Escribe *menu* para volver al inicio.");
+        // Si la opción coincide con una clave del árbol de menús, mostrar el mensaje correspondiente
+        if (menuTree[opcion] && menuTree[opcion].message) {
+          responseUtils.enviarTexto(client, usuario, menuTree[opcion].message);
+        } else {
+          // Si no existe en el árbol, enviar mensaje genérico
+          responseUtils.enviarTexto(client, usuario, "❌ Opción no válida. Escribe *menu* para volver al inicio.");
+        }
         break;
     }
   },
@@ -32,7 +48,4 @@ module.exports = {
   mostrarMenuPrincipal: function (client, usuario) {
     responseUtils.enviarTexto(client, usuario, menuTree.menuPrincipal.message);
   }
-
-
-  
 };

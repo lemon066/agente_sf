@@ -34,6 +34,78 @@ module.exports = {
     }
   },
 
+  // Subnivel: categorías de productos (logística)
+  productosCategorias: {
+    message:
+      "🏷️ *Categorías de productos disponibles:*\n\n" +
+      "1️⃣ Handhelds industriales\n" +
+      "2️⃣ Impresoras Zebra\n" +
+      "3️⃣ Software WMS\n" +
+      "4️⃣ Accesorios y repuestos\n\n" +
+      "0️⃣ Volver al menú anterior",
+    options: {
+      "1": "productosHandhelds",
+      "2": "productosZebra",
+      "3": "productosWMS",
+      "4": "productosAccesorios",
+      "0": "productosMenu"
+    }
+  },
+
+  // Categorías específicas (submenús de productos)
+  productosHandhelds: {
+    message:
+      "📱 *Handhelds Industriales*\n\n" +
+      "• Zebra TC21 / TC26\n" +
+      "• Honeywell EDA52\n" +
+      "• Datalogic Memor 11\n\n" +
+      "¿Deseas cotizar alguno?\n\n" +
+      "0️⃣ Volver al menú de categorías",
+    options: {
+      "0": "productosCategorias"
+    }
+  },
+
+  productosZebra: {
+    message:
+      "🖨️ *Impresoras Zebra*\n\n" +
+      "• Zebra ZT411 (Industrial)\n" +
+      "• Zebra ZD421 (Desktop)\n" +
+      "• Zebra QLn420 (Móvil)\n\n" +
+      "¿Deseas cotizar alguno?\n\n" +
+      "0️⃣ Volver al menú de categorías",
+    options: {
+      "0": "productosCategorias"
+    }
+  },
+
+  productosWMS: {
+    message:
+      "💻 *Software WMS (Warehouse Management System)*\n\n" +
+      "• WMS Basic (control de ubicaciones)\n" +
+      "• WMS Pro (multibodega + integración ERP)\n" +
+      "• WMS Cloud (modelo SaaS)\n\n" +
+      "¿Deseas una demostración o cotización?\n\n" +
+      "0️⃣ Volver al menú de categorías",
+    options: {
+      "0": "productosCategorias"
+    }
+  },
+
+  productosAccesorios: {
+    message:
+      "🔋 *Accesorios y repuestos*\n\n" +
+      "• Baterías para handhelds\n" +
+      "• Cables USB / Cradles\n" +
+      "• Cabezales térmicos Zebra\n\n" +
+      "¿Deseas cotizar alguno?\n\n" +
+      "0️⃣ Volver al menú de categorías",
+    options: {
+      "0": "productosCategorias"
+    }
+  },
+
+  // Cotización
   cotizacionMenu: {
     message:
       "💰 *Generar cotización*\n\n" +
@@ -47,6 +119,7 @@ module.exports = {
     }
   },
 
+  // Clientes
   clientesMenu: {
     message:
       "👤 *Gestión de clientes*\n\n" +
@@ -60,6 +133,7 @@ module.exports = {
     }
   },
 
+  // Oportunidades
   oportunidadesMenu: {
     message:
       "📈 *Seguimiento de oportunidades*\n\n" +
@@ -75,6 +149,7 @@ module.exports = {
     }
   },
 
+  // Soporte
   soporteMenu: {
     message:
       "☎️ *Soporte de ventas*\n\n" +
