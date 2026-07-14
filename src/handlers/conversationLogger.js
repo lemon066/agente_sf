@@ -1,37 +1,25 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
+const config = require('../config/config');
 
-const logsDir = path.resolve('tokens', 'wms-support');
+module.exports = function logConversation(userId, direction, message, type = 'general') {
+  if (!config.logConversations) return;
 
-// Crear carpeta de logs si no existe
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
-
-/**
- * Guarda conversaciones por usuario y fecha.
- */
-module.exports = function logConversation(userId, message, type = 'entrada') {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const logFilePath = path.join(logsDir, `${today}.json`);
-
-    let logs = {};
-    if (fs.existsSync(logFilePath)) {
-      const data = fs.readFileSync(logFilePath, 'utf8');
-      if (data.trim()) logs = JSON.parse(data);
-    }
-
-    if (!logs[userId]) logs[userId] = [];
-
-    logs[userId].push({
+    fs.mkdirSync(config.logsDir, { recursive: true });
+    const date = new Date().toISOString().slice(0, 10);
+    const logPath = path.join(config.logsDir, `${date}.jsonl`);
+    const record = {
       timestamp: new Date().toISOString(),
+      userId,
+      direction,
       type,
-      message,
-    });
-
-    fs.writeFileSync(logFilePath, JSON.stringify(logs, null, 2), 'utf8');
-  } catch (err) {
-    console.error('❌ Error guardando conversación:', err);
+      message: String(message || '').slice(0, 2000),
+    };
+    fs.appendFileSync(logPath, `${JSON.stringify(record)}\n`, 'utf8');
+  } catch (error) {
+    console.error(`No fue posible guardar el registro de conversación: ${error.message}`);
   }
 };

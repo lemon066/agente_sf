@@ -1,109 +1,83 @@
-const logConversation = require('./conversationLogger');
-const menu = require('../menus/menuHandler');
+'use strict';
+
 const menuTree = require('../menus/menuTree');
-const inferCategory = require('../utils/responseUtils');
+const menu = require('../menus/menuHandler');
+const conversationStore = require('../services/conversationStore');
+const { handleInput } = require('../services/actionHandlers');
+const logConversation = require('./conversationLogger');
+const { inferCategory, normalizeText, sendText } = require('../utils/responseUtils');
 
-// Estado por usuario (nivel actual del menú)
-const userStates = {};
+const ROOT_STATE = conversationStore.ROOT_STATE;
+const MENU_COMMANDS = new Set(['menu', 'inicio', 'empezar', 'hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches']);
+const BACK_COMMANDS = new Set(['atras', 'atrás', 'volver']);
+const CANCEL_COMMANDS = new Set(['cancelar', 'salir']);
 
-// Clave raíz real según tu menuTree
-const ROOT_STATE = 'menuPrincipal';
+module.exports = async function handleMessage(client, message) {
+  const userId = message.from;
+  const rawText = String(message.body || '').trim();
+  const text = normalizeText(rawText);
+  if (!userId || !text) return;
 
-// Helper: renderiza cualquier estado usando menuTree (sin tocar menuHandler)
-async function renderState(client, to, state) {
-  const node = menuTree?.[state];
-  if (!node || typeof node.message !== 'string') {
-    // Fallback: muestra el principal si el estado no existe
-    await menu.mostrarMenuPrincipal(client, to);
-    return;
-  }
-  await client.sendMessage(to, node.message);
-}
+  logConversation(userId, 'entrada', rawText, 'mensaje');
 
-module.exports = async (client, message) => {
-  const text = String((message.body || '')).toLowerCase().trim();
-  const from = message?.from;
-  if (!from) return;
-
-  // 🔹 Saludo / pedir menú → ir SIEMPRE al menú raíz de tu menuTree
-  if (['hola', 'menu', 'inicio', 'buenas', 'empezar'].some(g => text.includes(g))) {
-    userStates[from] = ROOT_STATE;
-    try {
-      await menu.mostrarMenuPrincipal(client, from);
-    } catch (err) {
-      console.error('❌ Error mostrando menú principal:', err);
-    }
-    logConversation(from, text, 'menú principal');
+  if (conversationStore.isExpired(userId)) {
+    conversationStore.reset(userId);
+    await sendText(client, userId, '⌛ La conversación anterior venció por inactividad.', 'inactividad');
+    await menu.mostrarMenuPrincipal(client, userId);
     return;
   }
 
-  // 🔹 Determinar nivel actual del usuario (por defecto, raíz)
-  const currentLevel = userStates[from] || ROOT_STATE;
+  const session = conversationStore.touch(userId);
 
-  // 🔹 Tomar las opciones del estado actual
-  const stateNode = menuTree[currentLevel];
-  const options = stateNode?.options;
-
-  // Si no hay opciones para ese estado, vuelve al menú principal
-  if (!options || typeof options !== 'object') {
-    console.warn(`⚠️ options undefined para estado "${currentLevel}". Volviendo a ${ROOT_STATE}.`);
-    userStates[from] = ROOT_STATE;
-    try {
-      await menu.mostrarMenuPrincipal(client, from);
-    } catch (err) {
-      console.error('❌ Error mostrando menú principal (fallback):', err);
-    }
-    logConversation(from, text, 'fallback menú principal');
+  if (MENU_COMMANDS.has(text) || CANCEL_COMMANDS.has(text)) {
+    conversationStore.reset(userId);
+    await menu.mostrarMenuPrincipal(client, userId);
     return;
   }
 
-  // 🔹 Buscar coincidencia por número (las claves del objeto options)
-  let selectedKey = null;
-  for (const key of Object.keys(options)) {
-    if (key === text) {
-      selectedKey = key;
-      break;
-    }
-  }
-
-  if (!selectedKey) {
-    // Si no reconoce, intenta inferir respuesta; si no, re-muestra el menú actual
-    try {
-      const { category, response } = inferCategory(text);
-      if (response) {
-        await client.sendMessage(from, response);
-        logConversation(from, text, category || 'sin categoría');
-      } else {
-        await renderState(client, from, currentLevel);
-        logConversation(from, text, `repetir menú ${currentLevel}`);
-      }
-    } catch (err) {
-      console.error('❌ Error al inferir/responder:', err);
-    }
+  if (BACK_COMMANDS.has(text)) {
+    const currentNode = menuTree[session.state] || menuTree[ROOT_STATE];
+    const parent = currentNode.parent || ROOT_STATE;
+    conversationStore.setState(userId, parent);
+    await menu.renderState(client, userId, parent);
     return;
   }
 
-  // 🔹 Avanzar al siguiente estado según el mapeo
-  const nextState = options[selectedKey];
+  const currentState = menuTree[session.state] ? session.state : ROOT_STATE;
+  const currentNode = menuTree[currentState];
+  const nextState = currentNode.options?.[text];
 
   if (nextState) {
-    userStates[from] = nextState;
-    try {
-      await renderState(client, from, nextState); // ⬅️ reemplaza menu.showMenu(...)
-    } catch (err) {
-      console.error('❌ Error mostrando submenú:', err);
-      // fallback al menú principal si falla
-      userStates[from] = ROOT_STATE;
-      try { await menu.mostrarMenuPrincipal(client, from); } catch {}
-    }
-    logConversation(from, text, `ir a ${nextState}`);
-  } else {
-    // Si una opción no tuviera nextState (no es tu caso), confirmación genérica
-    try {
-      await client.sendMessage(from, '✅ Opción seleccionada.');
-    } catch (err) {
-      console.error('❌ Error enviando confirmación:', err);
-    }
-    logConversation(from, text, `${currentLevel} - opción final`);
+    conversationStore.setState(userId, nextState);
+    await menu.renderState(client, userId, nextState);
+    return;
   }
+
+  if (currentNode.inputAction) {
+    const result = await handleInput(currentNode.inputAction, userId, rawText);
+    if (result) {
+      if (result.nextState) conversationStore.setState(userId, result.nextState);
+      else conversationStore.touch(userId);
+      await sendText(client, userId, result.message, `accion:${currentNode.inputAction}`);
+      if (result.nextState) await menu.renderState(client, userId, result.nextState);
+      return;
+    }
+  }
+
+  const inferred = inferCategory(text);
+  if (inferred.response) {
+    await sendText(client, userId, inferred.response, inferred.category);
+    return;
+  }
+
+  const invalidAttempts = conversationStore.incrementInvalid(userId);
+  if (invalidAttempts >= 3) {
+    conversationStore.reset(userId);
+    await sendText(client, userId, 'No pude identificar la opción. La conversación regresó al menú principal.', 'opcion-invalida');
+    await menu.mostrarMenuPrincipal(client, userId);
+    return;
+  }
+
+  await sendText(client, userId, 'Opción no válida. Usa una opción del menú, escribe *atras* o escribe *menu* para reiniciar.', 'opcion-invalida');
+  await menu.renderState(client, userId, currentState);
 };
