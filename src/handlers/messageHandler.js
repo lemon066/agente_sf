@@ -5,10 +5,10 @@ const menu = require('../menus/menuHandler');
 const conversationStore = require('../services/conversationStore');
 const { handleInput } = require('../services/actionHandlers');
 const logConversation = require('./conversationLogger');
-const { inferCategory, normalizeText, sendText } = require('../utils/responseUtils');
+const { buildInitialGuidance, inferCategory, normalizeText, sendText } = require('../utils/responseUtils');
 
 const ROOT_STATE = conversationStore.ROOT_STATE;
-const MENU_COMMANDS = new Set(['menu', 'inicio', 'empezar', 'hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches']);
+const MENU_COMMANDS = new Set(['menu', 'inicio', 'empezar']);
 const BACK_COMMANDS = new Set(['atras', 'atrás', 'volver']);
 const CANCEL_COMMANDS = new Set(['cancelar', 'salir']);
 
@@ -65,6 +65,12 @@ module.exports = async function handleMessage(client, message) {
   }
 
   const inferred = inferCategory(text);
+  if (currentState === ROOT_STATE) {
+    conversationStore.setState(userId, ROOT_STATE);
+    await sendText(client, userId, buildInitialGuidance(rawText, inferred), 'orientacion-inicial');
+    return;
+  }
+
   if (inferred.response) {
     await sendText(client, userId, inferred.response, inferred.category);
     return;

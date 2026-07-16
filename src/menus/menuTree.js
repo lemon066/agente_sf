@@ -10,7 +10,7 @@ module.exports = {
       '3️⃣ Clientes\n' +
       '4️⃣ Oportunidades\n' +
       '5️⃣ Soporte y contacto\n\n' +
-      'Escribe el número de una opción. También puedes escribir *menu*, *atras* o *cancelar*.',
+      'Escribe el número de una opción. También puedes escribir *menu*, *atras* o *cancelar*. Si no encuentras una, presiona 5 para soporte y contacto.',
     options: {
       '1': 'productosMenu',
       '2': 'cotizacionMenu',

@@ -37,6 +37,7 @@ test('conversación navega al buscador y devuelve un producto', async (t) => {
   const client = createClient();
 
   await handleMessage(client, incoming('hola', 1));
+  assert.match(client.messages.at(-1).body, /^Buenos/);
   assert.match(client.messages.at(-1).body, /Ver productos/);
 
   await handleMessage(client, incoming('1', 2));
